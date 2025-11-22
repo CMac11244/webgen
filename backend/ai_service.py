@@ -1235,7 +1235,9 @@ body {
     }
 }"""
 
-        js = """// Video Platform JavaScript
+        # Extract the embedded JavaScript
+        js_match = re.search(r'<script>(.*?)</script>', html, re.DOTALL)
+        js = js_match.group(1).strip() if js_match else """// Video Platform JavaScript
 const videoData = [
     { title: 'Amazing Tutorial: Learn Web Development', channel: 'CodeMaster', views: '1.2M', time: '2 days ago', duration: '15:30' },
     { title: 'Top 10 JavaScript Tips and Tricks', channel: 'DevGuru', views: '856K', time: '1 week ago', duration: '12:45' },
