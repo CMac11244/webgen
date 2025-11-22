@@ -1,0 +1,83 @@
+<analysis>
+The user's primary language is English. All responses should be in English.
+
+I have analyzed the entire development trajectory of the Code Weaver application. The project's goal is to create an AI-powered platform that generates full-stack websites from natural language prompts. The development process has been highly iterative, driven by continuous user feedback and bug reports.
+
+The journey began with setting up the basic FastAPI/React architecture and integrating required services like LLMs and cloud storage. Early development focused on building the core UI, including a chat interface and a live preview panel.
+
+Several key challenges were addressed:
+1.  **Rendering Previews:** A critical bug was discovered where the 's  attribute could not load external CSS/JS files. The solution was to engineer the AI prompt to embed all styling and scripts directly into the generated HTML.
+2.  **Generation Quality:** The user repeatedly reported poor visual quality, blank screens, or generated content that didn't match the prompt (e.g., a YouTube clone request). This led to significant overhauls of the backend , including creating a  to feed the AI with design principles, and creating high-quality fallback templates.
+3.  **Feature Implementation:** Based on user requests, session management (saving/reloading chats), multi-file code generation (HTML, CSS, JS, Python), and contextual awareness (allowing the AI to edit previously generated code) were implemented.
+
+The most recent work addresses the AI generating the same design repeatedly. A fix was attempted by removing the forced fallback logic, but the last test was inconclusive, showing a blank preview.
+</analysis>
+
+<product_requirements>
+The goal is to build Code Weaver, a professional AI-powered platform that generates complete, production-ready websites from natural language prompts.
+
+**Core Functionality:**
+-   **AI-Powered Generation:** Users interact via a modern chat interface to describe the website they want. The system uses an AI (Claude Opus) to generate the corresponding code.
+-   **Multi-File Projects:** The generator must produce full-stack projects, including separate HTML, CSS, JavaScript, and a Python (FastAPI) backend.
+-   **Live Interactive Preview:** A real-time preview of the generated website is displayed in an . Users can view the rendered site and also inspect the generated code in separate tabs (HTML, CSS, JS, Backend).
+-   **High-Quality Visuals:** A primary requirement is that the generated websites are visually appealing, modern, and professional, adhering to good design principles. The AI should be able to clone existing designs (like YouTube) accurately.
+-   **Session Management:** The application must save user projects/sessions. This includes persisting the full chat history and the generated code, allowing users to switch between projects and resume work. Sessions should be renamable.
+-   **Iterative Development:** The AI must be able to see previously generated code to make incremental changes based on subsequent user prompts.
+</product_requirements>
+
+<key_technical_concepts>
+- **AI Prompt Engineering:** The core of the application relies on carefully crafted prompts in  to guide an LLM (Claude Opus) to generate structured, multi-file, and visually appealing websites.
+- **Embedded  Content:** A key architectural constraint is that the live preview  uses the  attribute. This requires all generated HTML to have its CSS and JavaScript fully embedded within the single file, as external file links are not supported.
+- **Full-Stack Architecture:** The application uses a React frontend, a Python FastAPI backend, and a MongoDB database for persisting session data and chat history.
+</key_technical_concepts>
+
+<code_architecture>
+The application follows a standard full-stack monorepo structure with a React frontend and a FastAPI backend.
+
+
+   - ****
+      - **Importance:** This is the main entry point for the FastAPI backend. It defines all API endpoints, including those for managing sessions (), handling chat messages (), and orchestrating website generation ().
+      - **Changes:** It was significantly modified to add endpoints for multi-file project generation, saving/loading chat history, and retrieving the latest generated website for a session. It was also fixed to correctly query MongoDB without using  on a  operation.
+
+   - ****
+      - **Importance:** This is the brain of the application. It contains the core logic for constructing detailed prompts and interacting with the code-generation LLM.
+      - **Changes:** This file has undergone the most changes. It was repeatedly enhanced to:
+        - Generate multi-file outputs (HTML, CSS, JS, Python).
+        - Enforce the embedding of all CSS and JS into the HTML for  compatibility.
+        - Integrate a  to improve visual quality.
+        - Include previously generated code in prompts to allow for iterative edits.
+        - Add and later remove a forced fallback mechanism to handle poor-quality generations. The latest change was to remove the forced fallback to prevent repetitive outputs.
+
+   - ****
+      - **Importance:** This file was created to provide the AI with a rich context of design principles, modern UI/UX patterns, and information about libraries (e.g., Tailwind CSS, GSAP, Three.js).
+      - **Changes:** This was a newly created file. Its content is formatted and injected into the prompts in .
+
+   - ****
+      - **Importance:** This is the main page component that assembles the entire user interface, including the chat, session list, and preview panel. It manages the application's state.
+      - **Changes:** It was updated to implement session management (loading/saving chats and projects), fix a bug where user messages weren't saved during generation, and send existing website code back to the backend for iterative development.
+
+   - ****
+      - **Importance:** This component is responsible for displaying the generated website preview in an iframe and showing the raw code in tabs.
+      - **Changes:** It was updated to include tabs for HTML, CSS, JS, and Backend files. A bug in the Open in new tab feature, which caused a  error, was fixed by safely handling the iframe's content window.
+</code_architecture>
+
+<pending_tasks>
+- The primary unresolved issue is that the AI-powered generation produces the same visual layout repeatedly. The last fix attempt was to prevent the system from over-relying on a fallback template, but testing was inconclusive. The system must be made to generate unique websites based on user prompts.
+</pending_tasks>
+
+<current_work>
+The AI engineer was in the middle of fixing a critical bug reported by the user: the website generator was producing the exact same visual layout repeatedly, ignoring the specifics of the user's prompt.
+
+**Diagnosis:** The engineer correctly identified that the system was over-relying on a hardcoded, high-quality fallback template instead of generating unique code. This was a quick fix for previous issues of poor-quality generation, but it created this new problem.
+
+**Actions Taken:**
+1.  **Modified :** The logic that forced the use of the fallback template was removed.
+2.  **Enhanced Prompting:** The prompt was updated to explicitly instruct the AI to generate *unique* designs.
+3.  **Improved Validation:** Code validation was adjusted to check for quality without immediately resorting to the fallback.
+
+The last action was to restart the backend and test the fix by asking for a recipe blog. The observation was that the generation was suspiciously fast (3 seconds) and the preview was a blank white screen. This suggests the fix was not successful and the system may still be using the fallback or generating broken, empty code. The work was paused right after observing the result of this test.
+</current_work>
+
+<optional_next_step>
+Investigate why the recipe blog generation resulted in a blank preview and confirm if the AI is truly attempting to generate unique code or if it's still hitting the fallback or generating an empty HTML document.
+</optional_next_step>
