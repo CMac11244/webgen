@@ -154,6 +154,18 @@ backend:
       - working: true
         agent: "testing"
         comment: "✅ FILE EXTRACTION SYSTEM FULLY OPERATIONAL! Comprehensive testing completed successfully with session 'test-extraction-fix'. VALIDATION RESULTS: 1) Website Generation: ✅ PASS - Generated colorful landing page in 201.71s (15907 char HTML, 8405 char CSS, 4018 char JS), 2) CSS Extraction: ✅ PASS - Backend logs show CSS extraction activity, CSS file size 8405 bytes (>1000 requirement), 3) HTML Linking: ✅ PASS - HTML contains <link rel='stylesheet' href='static/styles.css'> with 0 embedded <style> tags remaining, 4) External File Content: ✅ PASS - CSS file contains extracted styles with proper formatting and gradients, 5) Preview Endpoints: ✅ PASS - CSS endpoint returns 200 OK with content-type text/css, 6) Black Page Fix: ✅ PASS - External files have substantial content and are properly served. The extraction system correctly extracts embedded CSS/JS from HTML when separate files are empty, removes embedded content from HTML, links external files, and ensures preview loads with proper styling."
+  
+  - task: "Format Specifier Fix - Resolve repetitive website generation"
+    implemented: true
+    working: true
+    file: "/app/backend/ai_service.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ FORMAT SPECIFIER FIX VERIFIED! Comprehensive testing completed successfully with sessions 'test-unique-ecommerce' and 'test-unique-portfolio'. VALIDATION RESULTS: 1) No Format Errors: ✅ PASS - No 'Invalid format specifier' errors found in backend logs, 2) Successful Generation: ✅ PASS - Both websites generated successfully (E-commerce: 'StepStyle - Premium Shoe Store', Portfolio: 'Alexandra Chen - Photography Portfolio'), 3) Intent Analysis: ✅ PASS - Backend logs show proper JSON analysis for each request, 4) Unique Titles: ✅ PASS - Different titles generated (not VideoTube fallback), 5) Different File Sizes: ✅ PASS - E-commerce: 4897 chars, Portfolio: 2409 chars, 6) Content Matching: ✅ PASS - E-commerce contains shopping terms (shoe, store, cart), Portfolio contains photography terms (photo, portfolio, gallery). The format specifier fix (changing pipe characters | to 'OR' in _analyze_user_intent method) successfully resolves the repetitive website generation issue. Generation times were 3+ minutes each, indicating real AI processing."
     status_history:
       - working: "false"
         agent: "user"
