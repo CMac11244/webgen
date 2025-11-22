@@ -501,11 +501,43 @@ EXAMPLE:
 ═══════════════════════════════════════════════════════════════
 """
         
-        frontend_prompt = f"""🚀 {'MODIFY EXISTING WEBSITE' if current_website else f'CREATE A COMPLETELY UNIQUE {analysis.get("app_type", "website").upper()}'} 🚀
+        if current_website:
+            # EDITING MODE - Different prompt structure
+            frontend_prompt = f"""🔄 WEBSITE EDITING TASK 🔄
 
-{existing_code_context if current_website else ''}
+{existing_code_context}
 
-{'⚠️ CRITICAL: This is an ITERATIVE EDIT. Modify the existing website based on the user request!' if current_website else '⚠️ CRITICAL: Generate NEW, ORIGINAL code based on this SPECIFIC request. DO NOT reuse templates!'}
+⚠️ EDITING INSTRUCTIONS:
+You have the COMPLETE existing website code above. The user wants to make changes.
+
+USER'S REQUEST: {prompt}
+
+🎯 WHAT TO DO:
+1. Study the existing HTML, CSS, and JavaScript structure
+2. Identify exactly what needs to change based on the user's request
+3. Make those specific changes
+4. Keep EVERYTHING else unchanged
+5. Return the complete modified HTML, CSS, and JavaScript
+
+🚫 DO NOT:
+- Rebuild the website from scratch
+- Remove existing features
+- Change unrelated styling or functionality
+- Redesign the entire layout
+
+✅ DO:
+- Make precise surgical edits
+- Add new features if requested
+- Modify specific elements if requested
+- Maintain existing structure and design language
+- Preserve all working functionality
+
+Generate the complete modified code maintaining all existing features:"""
+        else:
+            # CREATION MODE - Original prompt structure  
+            frontend_prompt = f"""🚀 CREATE A COMPLETELY UNIQUE {analysis.get("app_type", "website").upper()} 🚀
+
+⚠️ CRITICAL: Generate NEW, ORIGINAL code based on this SPECIFIC request. DO NOT reuse templates!
 
 USER REQUEST: {prompt}
 
