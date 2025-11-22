@@ -257,10 +257,23 @@ Return ONLY the JSON analysis object."""
         reference_examples = self._get_reference_examples(analysis.get('reference_site', 'custom'))
         component_templates = self._get_component_templates(analysis.get('key_components', []))
         
+        # Build comprehensive knowledge base for AI
+        frameworks_info = self._format_frameworks_knowledge()
+        design_info = self._format_design_knowledge()
+        component_info = self._format_component_patterns()
+        
         chat = LlmChat(
             api_key=self.api_key,
             session_id=f"{session_id}_frontend",
-            system_message=f"""You are an ELITE web developer who creates PIXEL-PERFECT, VISUALLY STUNNING web applications.
+            system_message=f"""You are an ELITE web developer with COMPREHENSIVE DESIGN KNOWLEDGE who creates PIXEL-PERFECT, VISUALLY STUNNING web applications.
+
+{frameworks_info}
+
+{design_info}
+
+{component_info}
+
+You have access to this complete knowledge base - USE IT to create professional, modern designs!
 
 🚨 CRITICAL REQUIREMENT - EMBEDDED STYLES 🚨
 The HTML will be displayed in an IFRAME using srcDoc. This means:
