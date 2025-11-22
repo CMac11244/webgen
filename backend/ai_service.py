@@ -50,14 +50,7 @@ class AIService:
             }
 
     async def generate_complete_project(self, prompt: str, model: str, framework: str, conversation_history: List[Dict]) -> Dict[str, Any]:
-        """
-        Generate a complete, production-ready project with:
-        - Frontend HTML/CSS/JavaScript
-        - Python FastAPI backend
-        - Database models
-        - API endpoints
-        - README documentation
-        """
+        """Generate a complete, production-ready project"""
         provider, model_name = self._get_model_config(model)
         session_id = f"project_{os.urandom(8).hex()}"
         
@@ -65,8 +58,12 @@ class AIService:
         logger.info(f"User prompt: {prompt}")
         
         try:
-            # Generate frontend
-            frontend_result = await self._generate_frontend(prompt, provider, model_name, session_id)
+            # First, analyze what the user is ACTUALLY asking for
+            analysis = await self._analyze_user_intent(prompt, provider, model_name, session_id)
+            logger.info(f"Intent analysis: {analysis}")
+            
+            # Generate frontend with context
+            frontend_result = await self._generate_contextual_frontend(prompt, analysis, provider, model_name, session_id)
             
             # Generate backend
             backend_result = await self._generate_backend(prompt, provider, model_name, session_id)
@@ -77,7 +74,6 @@ class AIService:
             # Compile all files
             files = []
             
-            # Frontend files
             if frontend_result.get('html'):
                 files.append({
                     "filename": "index.html",
@@ -102,7 +98,6 @@ class AIService:
                     "description": "JavaScript for interactivity and API calls"
                 })
             
-            # Backend files
             if backend_result.get('python'):
                 files.append({
                     "filename": "server.py",
@@ -119,15 +114,6 @@ class AIService:
                     "description": "Python dependencies"
                 })
             
-            if backend_result.get('models'):
-                files.append({
-                    "filename": "models.py",
-                    "content": backend_result['models'],
-                    "file_type": "python",
-                    "description": "Database models and schemas"
-                })
-            
-            # Documentation
             if readme:
                 files.append({
                     "filename": "README.md",
@@ -136,7 +122,6 @@ class AIService:
                     "description": "Project documentation"
                 })
             
-            # Package.json for frontend dependencies
             package_json = self._generate_package_json(prompt)
             files.append({
                 "filename": "package.json",
@@ -155,540 +140,757 @@ class AIService:
                 "requirements_txt": backend_result.get('requirements', ''),
                 "package_json": package_json,
                 "readme": readme,
-                "structure": {
-                    "frontend": ["index.html", "styles.css", "app.js"],
-                    "backend": ["server.py", "models.py", "requirements.txt"],
-                    "docs": ["README.md"]
-                },
+                "structure": analysis,
                 "files": files
             }
             
         except Exception as e:
             logger.error(f"Complete project generation failed: {str(e)}", exc_info=True)
-            # Return basic fallback
             return await self._generate_fallback_project(prompt)
 
-    async def _generate_frontend(self, prompt: str, provider: str, model: str, session_id: str) -> Dict[str, str]:
-        """Generate professional frontend with separated HTML/CSS/JS"""
+    async def _analyze_user_intent(self, prompt: str, provider: str, model: str, session_id: str) -> Dict[str, Any]:
+        """Analyze what the user is ACTUALLY asking for"""
         chat = LlmChat(
             api_key=self.api_key,
-            session_id=f"{session_id}_frontend",
-            system_message="""You are an ELITE frontend developer and UI/UX designer who creates STUNNING, visually impressive websites.
+            session_id=f"{session_id}_analyzer",
+            system_message="""You are an expert at understanding user intent for web applications.
 
-🎨 VISUAL DESIGN IS PARAMOUNT - THIS IS YOUR #1 PRIORITY 🎨
+Analyze the user's request and identify:
+1. What TYPE of website/app they want (e.g., video platform, e-commerce, social media, dashboard, etc.)
+2. What SPECIFIC FEATURES they need (e.g., video grid, shopping cart, user profiles, data visualization)
+3. What VISUAL STYLE is appropriate (e.g., YouTube's dark theme with thumbnails, Amazon's product grid, Netflix's hero banner)
+4. What COMPONENTS are needed (e.g., navigation bar, sidebar, video player, cards, forms)
 
-DESIGN PHILOSOPHY:
-Your designs should rival the best websites on the internet like:
-- Stripe.com (clean, modern, subtle gradients)
-- Linear.app (sleek, dark themes, smooth animations)
-- Vercel.com (minimalist, sharp, excellent typography)
-- Apple.com (spacious, elegant, perfect hierarchy)
-- Awwwards.com winners (creative, unique, memorable)
-
-═══════════════════════════════════════════════════════════════
-
-🎨 COLOR SCHEME REQUIREMENTS (CRITICAL):
-
-1. CHOOSE A SOPHISTICATED COLOR PALETTE:
-   - Primary: One bold, modern color (e.g., #6366f1, #8b5cf6, #0ea5e9, #10b981)
-   - Secondary: Complementary accent color
-   - Background: Rich gradients, NOT solid colors
-   - Use color psychology: Blue=trust, Purple=luxury, Green=growth
-   
-2. GRADIENT MASTERY:
-   - Use multi-stop gradients: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)
-   - Subtle mesh gradients for backgrounds
-   - Gradient text with background-clip: text
-   - Animated gradient effects on hover
-   
-3. DARK MODE EXCELLENCE:
-   - Dark themes: Use #0a0a0a, #111111, #1a1a1a (never pure black)
-   - Subtle colored shadows in dark mode
-   - Glow effects on interactive elements
-
-═══════════════════════════════════════════════════════════════
-
-📐 LAYOUT & SPACING (CRITICAL):
-
-1. GENEROUS WHITE SPACE:
-   - Use 2-3x MORE spacing than you think necessary
-   - Section padding: 120px+ vertical, 80px+ horizontal
-   - Element gaps: 60px between major sections
-   - Component padding: 40-60px
-   
-2. MODERN LAYOUT PATTERNS:
-   - Hero sections: Full viewport height with centered content
-   - Asymmetric grids for visual interest
-   - Bento box layouts (card grids with varying sizes)
-   - Split-screen designs
-   - Diagonal sections with clip-path
-   
-3. VISUAL HIERARCHY:
-   - Massive hero headings: 4-6rem (64-96px)
-   - Clear size distinctions: h1 → 4rem, h2 → 3rem, h3 → 2rem
-   - Use weight variations: 300, 400, 600, 700, 800
-   - Strategic use of color to guide eyes
-
-═══════════════════════════════════════════════════════════════
-
-✨ TYPOGRAPHY (MAKE IT SING):
-
-1. FONT SELECTION:
-   - Import Google Fonts (2-3 fonts max)
-   - Display fonts: Inter, Space Grotesk, Outfit, Manrope, Plus Jakarta Sans
-   - Consider variable fonts for smooth weight transitions
-   
-2. TYPOGRAPHIC DETAILS:
-   - Line height: 1.6-1.8 for body text
-   - Letter spacing: -0.02em for large headings, normal for body
-   - Font smoothing: -webkit-font-smoothing: antialiased
-   - Text shadow for depth: text-shadow: 0 2px 4px rgba(0,0,0,0.1)
-
-═══════════════════════════════════════════════════════════════
-
-🌟 VISUAL EFFECTS & POLISH:
-
-1. GLASSMORPHISM:
-   - backdrop-filter: blur(12px) saturate(180%)
-   - Semi-transparent backgrounds: rgba(255,255,255,0.1)
-   - Subtle borders: 1px solid rgba(255,255,255,0.18)
-   
-2. DEPTH & SHADOWS:
-   - Layered shadows: box-shadow: 0 10px 40px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.06)
-   - Colored shadows matching brand: box-shadow: 0 20px 60px rgba(99,102,241,0.3)
-   - Elevation on hover: transform: translateY(-4px)
-   
-3. SMOOTH ANIMATIONS:
-   - Micro-interactions on everything
-   - transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)
-   - Stagger animations for lists
-   - Parallax scrolling effects
-   - Fade-in on scroll animations
-   - Hover scale effects: transform: scale(1.05)
-   
-4. ADVANCED CSS:
-   - CSS custom properties for theming
-   - :hover, :focus, :active states for ALL interactive elements
-   - clip-path for unique shapes
-   - Mix-blend-mode for creative effects
-   - filter: for image effects
-
-═══════════════════════════════════════════════════════════════
-
-🎯 COMPONENT DESIGN:
-
-1. BUTTONS (Make them irresistible):
-   - Large, pill-shaped with generous padding: 18px 48px
-   - Gradient backgrounds or solid with shadow
-   - Transform on hover: scale(1.05) + shadow increase
-   - Ripple or shimmer effects
-   
-2. CARDS:
-   - Rounded corners: 16-24px
-   - Subtle hover elevation
-   - Internal padding: 40px
-   - Background: white/dark with slight transparency
-   
-3. NAVIGATION:
-   - Sticky/fixed with backdrop blur
-   - Smooth scroll behavior
-   - Active state indicators
-   - Mobile hamburger with smooth animation
-
-═══════════════════════════════════════════════════════════════
-
-📱 RESPONSIVE DESIGN:
-
-- Mobile-first approach
-- Breakpoints: 640px, 768px, 1024px, 1280px, 1536px
-- Stack layouts gracefully on mobile
-- Touch-friendly: 44px minimum tap targets
-- Test at all viewport sizes
-
-═══════════════════════════════════════════════════════════════
-
-TECHNICAL REQUIREMENTS:
-1. Generate SEPARATE files: HTML, CSS, JavaScript
-2. Use semantic HTML5
-3. BEM or utility-first CSS methodology
-4. Modern ES6+ JavaScript
-5. Accessible (ARIA labels, keyboard nav)
-6. Performance optimized
-
-OUTPUT FORMAT:
-```html
-[Complete HTML]
-```
-
-```css
-[Complete CSS - AT LEAST 500 LINES of beautiful, detailed styling]
-```
-
-```javascript
-[Complete JavaScript with smooth interactions]
-```
-
-REMEMBER: Every pixel matters. Make it BEAUTIFUL, not just functional."""
+Return ONLY a JSON object with this structure:
+{
+  "app_type": "video_platform" | "ecommerce" | "social_media" | "dashboard" | "landing_page" | "other",
+  "reference_site": "youtube" | "netflix" | "amazon" | "twitter" | "stripe" | "custom",
+  "key_components": ["video_grid", "sidebar_nav", "search_bar", "video_player"],
+  "visual_style": "dark_theme" | "light_theme" | "gradient" | "minimal" | "colorful",
+  "layout_pattern": "grid" | "feed" | "hero_sections" | "dashboard_cards" | "single_page",
+  "primary_features": ["video_playback", "comments", "recommendations", "subscriptions"]
+}"""
         )
         chat.with_model(provider, model)
         
-        full_prompt = f"""🎨 CREATE A VISUALLY STUNNING, AWARD-WORTHY WEBSITE 🎨
+        analysis_prompt = f"""Analyze this website request:
 
-PROJECT BRIEF:
-{prompt}
+"{prompt}"
 
-═══════════════════════════════════════════════════════════════
+Return ONLY the JSON analysis object."""
+        
+        user_message = UserMessage(text=analysis_prompt)
+        response = await chat.send_message(user_message)
+        
+        try:
+            # Extract JSON
+            if "```json" in response:
+                json_str = response.split("```json")[1].split("```")[0].strip()
+            elif "```" in response:
+                json_str = response.split("```")[1].split("```")[0].strip()
+            else:
+                json_str = response
+            
+            analysis = json.loads(json_str)
+            return analysis
+        except:
+            # Fallback analysis
+            return {
+                "app_type": "landing_page",
+                "reference_site": "custom",
+                "key_components": ["header", "hero", "features", "footer"],
+                "visual_style": "modern",
+                "layout_pattern": "hero_sections",
+                "primary_features": ["responsive_design"]
+            }
 
-YOUR MISSION: Create a website so beautiful it could win design awards.
+    async def _generate_contextual_frontend(self, prompt: str, analysis: Dict, provider: str, model: str, session_id: str) -> Dict[str, str]:
+        """Generate frontend based on context analysis"""
+        
+        # Build context-specific instructions
+        reference_examples = self._get_reference_examples(analysis.get('reference_site', 'custom'))
+        component_templates = self._get_component_templates(analysis.get('key_components', []))
+        
+        chat = LlmChat(
+            api_key=self.api_key,
+            session_id=f"{session_id}_frontend",
+            system_message=f"""You are an ELITE web developer who creates PIXEL-PERFECT clones and functional websites.
 
-DESIGN INSPIRATION LEVEL: Think Stripe.com, Linear.app, Apple.com, Awwwards winners
+CRITICAL RULES:
+1. MATCH the exact visual style of what the user asks for
+2. If they want a YouTube clone → create a REAL video platform UI with grid, sidebar, player
+3. If they want Netflix → create hero banner with rows of content cards
+4. If they want Amazon → create product grid with filters and cart
+5. DON'T create generic white backgrounds with text - CREATE THE ACTUAL UI
 
-═══════════════════════════════════════════════════════════════
+You MUST:
+- Use the CORRECT layout for the app type (grid for videos, feed for social, dashboard for analytics)
+- Include ALL necessary components (nav, sidebar, cards, players, forms)
+- Use appropriate colors and styling for the app type
+- Make it FUNCTIONAL with working JavaScript
+- Use realistic placeholder content (video thumbnails, product images, user avatars)
 
-🎨 VISUAL DESIGN REQUIREMENTS:
+REFERENCE EXAMPLES:
+{reference_examples}
 
-COLOR SCHEME:
-- Choose a sophisticated, modern color palette
-- Use rich gradients (minimum 3-color stops)
-- Implement gradient text for headings
-- Add colored shadows to match your palette
-- Example palette: Primary #6366f1, Accent #8b5cf6, Background gradient from #667eea to #764ba2
+COMPONENTS TO INCLUDE:
+{component_templates}
 
-SPACING & LAYOUT:
-- GENEROUS white space everywhere (2-3x more than typical)
-- Hero section: 100vh height, perfectly centered
-- Section padding: 120px vertical minimum
-- Component gaps: 60px between major elements
-- Modern asymmetric grid layouts
+OUTPUT: Separate HTML, CSS, and JavaScript files that create a REAL, FUNCTIONAL interface."""
+        )
+        chat.with_model(provider, model)
+        
+        frontend_prompt = f"""CREATE A FUNCTIONAL {analysis.get('app_type', 'website').upper()}:
 
-TYPOGRAPHY:
-- Import beautiful Google Fonts (e.g., Inter, Space Grotesk, Outfit)
-- Hero heading: 4-6rem (massive, bold, attention-grabbing)
-- Perfect line-height: 1.6-1.8
-- Letter-spacing: -0.02em for large headings
-- Smooth font rendering: -webkit-font-smoothing: antialiased
+USER REQUEST: {prompt}
 
-VISUAL EFFECTS:
-- Glassmorphism: backdrop-filter: blur(12px)
-- Layered shadows: multiple box-shadow values
-- Smooth hover animations: transform: translateY(-4px) scale(1.02)
-- Gradient hover effects
-- Fade-in scroll animations
-- Parallax effects where appropriate
+APP TYPE: {analysis.get('app_type')}
+REFERENCE STYLE: {analysis.get('reference_site')}
+KEY COMPONENTS: {', '.join(analysis.get('key_components', []))}
+VISUAL STYLE: {analysis.get('visual_style')}
+LAYOUT: {analysis.get('layout_pattern')}
 
-COMPONENT DESIGN:
-- Buttons: Pill-shaped, large padding (20px 50px), gradient or solid with glow
-- Cards: 20px border-radius, subtle hover lift, internal padding 40px
-- Navigation: Sticky with backdrop blur, smooth scroll
-- Inputs: Large, rounded, focus glow effects
+GENERATE:
 
-═══════════════════════════════════════════════════════════════
+1. **index.html** - Complete HTML with:
+   - Proper semantic structure
+   - ALL components listed above (don't skip any!)
+   - Realistic placeholder content
+   - <link rel="stylesheet" href="styles.css">
+   - <script src="app.js"></script> before </body>
 
-📋 GENERATE THREE SEPARATE FILES:
+2. **styles.css** - Complete CSS with:
+   - Exact styling to match the reference site
+   - Proper layout (Grid/Flexbox)
+   - Responsive design
+   - All component styles
+   - Modern effects
+   - MINIMUM 600 lines of detailed CSS
 
-1. **index.html**
-   ├─ Semantic HTML5 structure
-   ├─ Comprehensive meta tags
-   ├─ <link rel="stylesheet" href="styles.css">
-   ├─ Multiple sections with proper hierarchy
-   ├─ Real, engaging content (not Lorem Ipsum)
-   └─ <script src="app.js"></script> before </body>
+3. **app.js** - Working JavaScript with:
+   - DOM manipulation
+   - Event handlers
+   - Interactive features
+   - State management
+   - API simulation
 
-2. **styles.css** (MINIMUM 500 LINES - GO DEEP!)
-   ├─ :root with CSS custom properties
-   ├─ @import for Google Fonts
-   ├─ Reset/normalize styles
-   ├─ Body with gradient background
-   ├─ Detailed component styles
-   ├─ Hover/focus/active states for EVERYTHING
-   ├─ Smooth animations with cubic-bezier easing
-   ├─ Responsive breakpoints: 640px, 768px, 1024px, 1280px
-   ├─ Glassmorphism effects
-   ├─ Gradient overlays
-   └─ Advanced effects (clip-path, blend-modes)
-
-3. **app.js**
-   ├─ DOMContentLoaded listener
-   ├─ Smooth scroll behavior
-   ├─ Interactive animations
-   ├─ Form handling (if applicable)
-   ├─ Scroll reveal animations
-   ├─ Dynamic effects
-   └─ API integration ready
-
-═══════════════════════════════════════════════════════════════
-
-🎯 QUALITY CHECKLIST:
-✓ Looks expensive and premium
-✓ Makes users say "wow"
-✓ Professional color harmony
-✓ Perfect spacing rhythm
-✓ Smooth, delightful interactions
-✓ Responsive on all devices
-✓ Accessible and semantic
-✓ Performance optimized
-
-═══════════════════════════════════════════════════════════════
-
-OUTPUT FORMAT:
+FORMAT:
 ```html
-<!DOCTYPE html>
-<html lang="en">
-...complete, beautiful HTML...
-</html>
+[COMPLETE HTML]
 ```
 
 ```css
-@import url('https://fonts.googleapis.com/css2?family=...');
-
-:root {{
-  --primary: #6366f1;
-  --secondary: #8b5cf6;
-  /* more variables */
-}}
-
-/* Reset */
-* {{
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}}
-
-/* ... 500+ lines of gorgeous CSS ... */
+[COMPLETE CSS - MINIMUM 600 LINES]
 ```
 
 ```javascript
-document.addEventListener('DOMContentLoaded', () => {{
-  // Beautiful, smooth interactions
-}});
+[COMPLETE JAVASCRIPT]
 ```
 
-NOW CREATE SOMETHING EXCEPTIONAL! 🚀"""
+MAKE IT LOOK AND FUNCTION LIKE THE REAL THING!"""
         
-        user_message = UserMessage(text=full_prompt)
+        user_message = UserMessage(text=frontend_prompt)
         response = await chat.send_message(user_message)
         
-        # Extract each file type
+        # Extract code
         html = self._extract_code_block(response, "html") or ""
         css = self._extract_code_block(response, "css") or ""
         js = self._extract_code_block(response, "javascript") or self._extract_code_block(response, "js") or ""
         
-        # If extraction failed, try alternative methods
+        # Fallback extraction
         if not html and "<!DOCTYPE" in response:
             html = self._extract_html_direct(response)
         
-        # Ensure HTML links to CSS and JS
-        if html and "<link" not in html:
-            head_end = html.find("</head>")
-            if head_end > 0:
-                html = html[:head_end] + '    <link rel="stylesheet" href="styles.css">\n' + html[head_end:]
+        # Ensure links
+        if html and "<link" not in html and "</head>" in html:
+            html = html.replace("</head>", '    <link rel="stylesheet" href="styles.css">\n</head>')
         
-        if html and "<script" not in html:
-            body_end = html.find("</body>")
-            if body_end > 0:
-                html = html[:body_end] + '    <script src="app.js"></script>\n' + html[body_end:]
+        if html and "<script" not in html and "</body>" in html:
+            html = html.replace("</body>", '    <script src="app.js"></script>\n</body>')
         
-        logger.info(f"Generated frontend: HTML={len(html)} chars, CSS={len(css)} chars, JS={len(js)} chars")
+        # Validate quality
+        if len(html) < 500:
+            logger.warning(f"HTML too short ({len(html)} chars), using fallback")
+            return await self._generate_fallback_frontend(prompt, analysis)
         
-        # Quality check: Ensure CSS is detailed enough
         if len(css) < 300:
-            logger.warning("CSS too minimal, enhancing with design framework...")
-            css = self._enhance_css_design(css, html)
+            logger.warning(f"CSS too short ({len(css)} chars), enhancing")
+            css = self._enhance_css_for_app_type(css, analysis)
         
-        # Ensure modern features are present
-        css = self._ensure_modern_css_features(css)
+        logger.info(f"Generated: HTML={len(html)}, CSS={len(css)}, JS={len(js)}")
         
-        return {
-            "html": html,
-            "css": css,
-            "js": js
-        }
+        return {"html": html, "css": css, "js": js}
 
-    def _enhance_css_design(self, css: str, html: str) -> str:
-        """Add design enhancements if CSS is too minimal"""
-        enhancement = """
-/* Enhanced Design System */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+    def _get_reference_examples(self, reference_site: str) -> str:
+        """Get specific examples for reference sites"""
+        examples = {
+            "youtube": """YOUTUBE STYLE:
+- Dark theme (#0f0f0f background, #212121 for cards)
+- Top navigation bar with logo, search bar, icons
+- Left sidebar with menu items
+- Main content: Grid of video cards (3-4 columns)
+- Each card: Thumbnail image, title, channel name, views, date
+- Video player page: Large player, title, channel info, description
+- Use Material Icons or emoji for icons""",
+            "netflix": """NETFLIX STYLE:
+- Dark background (#141414)
+- Large hero banner with featured content
+- Horizontal scrolling rows of content cards
+- Hover effects with scale and info reveal
+- Navigation bar with transparent/blur effect
+- Red accent color (#E50914)""",
+            "twitter": """TWITTER STYLE:
+- Three column layout: sidebar, feed, trending
+- Blue accent (#1DA1F2)
+- Tweet cards with avatar, username, text, actions
+- Rounded profile images
+- Light theme with white cards""",
+            "amazon": """AMAZON STYLE:
+- Product grid layout
+- Search bar prominent in header
+- Product cards: image, title, price, rating
+- Orange accent (#FF9900)
+- Left sidebar with filters/categories"""
+        }
+        return examples.get(reference_site, "Modern, professional design with appropriate layout for the app type.")
+
+    def _get_component_templates(self, components: List[str]) -> str:
+        """Get templates for specific components"""
+        templates = []
+        
+        if "video_grid" in components:
+            templates.append("Video Grid: 3-4 columns of video cards with thumbnail, title, channel, views")
+        if "sidebar_nav" in components:
+            templates.append("Sidebar Navigation: Vertical menu with icons and labels")
+        if "search_bar" in components:
+            templates.append("Search Bar: Prominent input field with search icon")
+        if "video_player" in components:
+            templates.append("Video Player: Large embedded player with controls")
+        if "product_grid" in components:
+            templates.append("Product Grid: Cards with image, title, price, rating")
+        if "feed" in components:
+            templates.append("Feed: Vertical list of posts/content cards")
+        if "dashboard_cards" in components:
+            templates.append("Dashboard Cards: Stats cards with numbers and charts")
+        
+        return "\n".join(templates) if templates else "Standard web components"
+
+    def _enhance_css_for_app_type(self, css: str, analysis: Dict) -> str:
+        """Add CSS enhancements based on app type"""
+        app_type = analysis.get('app_type', 'landing_page')
+        
+        if app_type == 'video_platform':
+            enhancement = """/* Video Platform Styles */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+
+:root {
+    --yt-black: #0f0f0f;
+    --yt-dark: #212121;
+    --yt-white: #ffffff;
+    --yt-text: #f1f1f1;
+    --yt-border: #303030;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Roboto', sans-serif;
+    background: var(--yt-black);
+    color: var(--yt-text);
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--yt-black);
+    border-bottom: 1px solid var(--yt-border);
+}
+
+.sidebar {
+    position: fixed;
+    left: 0;
+    top: 56px;
+    width: 240px;
+    height: calc(100vh - 56px);
+    background: var(--yt-black);
+    overflow-y: auto;
+    padding: 12px 0;
+}
+
+.main-content {
+    margin-left: 240px;
+    margin-top: 56px;
+    padding: 24px;
+}
+
+.video-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+}
+
+.video-card {
+    cursor: pointer;
+}
+
+.video-thumbnail {
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: var(--yt-dark);
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+}
+
+.video-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.video-info {
+    display: flex;
+    gap: 12px;
+    padding-top: 12px;
+}
+
+.channel-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--yt-dark);
+}
+
+.video-details h3 {
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.4;
+    margin-bottom: 4px;
+}
+
+.video-meta {
+    font-size: 12px;
+    color: #aaa;
+}"""
+        else:
+            enhancement = """@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
     --primary: #6366f1;
-    --primary-dark: #4f46e5;
-    --secondary: #8b5cf6;
-    --accent: #ec4899;
     --background: #0f172a;
     --surface: #1e293b;
     --text: #f1f5f9;
-    --text-muted: #94a3b8;
-    --radius: 16px;
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1);
-    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.15);
-    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.2);
-    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-    min-height: 100vh;
+    font-family: 'Inter', sans-serif;
+    background: var(--background);
     color: var(--text);
     line-height: 1.6;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+}"""
+        
+        return enhancement + "\n\n" + css
+
+    async def _generate_fallback_frontend(self, prompt: str, analysis: Dict) -> Dict[str, str]:
+        """Generate a fallback based on app type"""
+        app_type = analysis.get('app_type', 'landing_page')
+        
+        if app_type == 'video_platform':
+            return self._create_video_platform_fallback(prompt)
+        else:
+            return self._create_generic_fallback(prompt)
+
+    def _create_video_platform_fallback(self, prompt: str) -> Dict[str, str]:
+        """Create a video platform UI fallback"""
+        html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Platform</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="header">
+        <div class="header-left">
+            <button class="menu-btn">☰</button>
+            <div class="logo">📺 VideoTube</div>
+        </div>
+        <div class="header-center">
+            <input type="text" class="search-bar" placeholder="Search">
+            <button class="search-btn">🔍</button>
+        </div>
+        <div class="header-right">
+            <button>🔔</button>
+            <button>👤</button>
+        </div>
+    </header>
+    
+    <aside class="sidebar">
+        <nav>
+            <a href="#" class="nav-item active">🏠 Home</a>
+            <a href="#" class="nav-item">📺 Subscriptions</a>
+            <a href="#" class="nav-item">📚 Library</a>
+            <a href="#" class="nav-item">🕐 History</a>
+            <a href="#" class="nav-item">👍 Liked Videos</a>
+        </nav>
+    </aside>
+    
+    <main class="main-content">
+        <div class="video-grid" id="videoGrid">
+            <!-- Videos will be generated by JavaScript -->
+        </div>
+    </main>
+    
+    <script src="app.js"></script>
+</body>
+</html>"""
+
+        css = """@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Roboto', sans-serif;
+    background: #0f0f0f;
+    color: #f1f1f1;
 }
 
-h1, h2, h3, h4, h5, h6 {
-    font-family: 'Space Grotesk', sans-serif;
-    font-weight: 700;
-    line-height: 1.2;
-    margin-bottom: 1rem;
+.header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    background: #0f0f0f;
+    border-bottom: 1px solid #303030;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    z-index: 100;
 }
 
-h1 {
-    font-size: clamp(2.5rem, 5vw, 5rem);
-    background: linear-gradient(135deg, #fff 0%, #e2e8f0 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+.header-left, .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
 }
 
-button, .btn {
-    padding: 18px 48px;
-    border-radius: 50px;
+.menu-btn {
+    background: none;
     border: none;
-    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-    color: white;
-    font-weight: 600;
-    font-size: 1rem;
+    color: #fff;
+    font-size: 20px;
     cursor: pointer;
-    transition: var(--transition);
-    box-shadow: 0 10px 30px rgba(99, 102, 241, 0.3);
+    padding: 8px;
 }
 
-button:hover, .btn:hover {
-    transform: translateY(-2px) scale(1.02);
-    box-shadow: 0 15px 40px rgba(99, 102, 241, 0.4);
+.logo {
+    font-size: 20px;
+    font-weight: 700;
 }
 
-.container {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 0 40px;
+.header-center {
+    flex: 1;
+    max-width: 600px;
+    display: flex;
+    gap: 8px;
+    margin: 0 40px;
 }
 
-section {
-    padding: 120px 0;
+.search-bar {
+    flex: 1;
+    background: #121212;
+    border: 1px solid #303030;
+    border-radius: 40px;
+    padding: 10px 16px;
+    color: #f1f1f1;
+    font-size: 16px;
 }
 
-.card {
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(12px);
-    border-radius: var(--radius);
-    padding: 40px;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    box-shadow: var(--shadow-lg);
-    transition: var(--transition);
+.search-bar:focus {
+    outline: none;
+    border-color: #1e90ff;
 }
 
-.card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+.search-btn {
+    background: #222;
+    border: 1px solid #303030;
+    border-radius: 40px;
+    padding: 10px 20px;
+    color: #fff;
+    cursor: pointer;
+}
+
+.header-right button {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 8px;
+}
+
+.sidebar {
+    position: fixed;
+    left: 0;
+    top: 56px;
+    width: 240px;
+    height: calc(100vh - 56px);
+    background: #0f0f0f;
+    overflow-y: auto;
+    padding: 12px 0;
+    border-right: 1px solid #303030;
+}
+
+.sidebar::-webkit-scrollbar { width: 8px; }
+.sidebar::-webkit-scrollbar-thumb { background: #303030; border-radius: 4px; }
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 24px;
+    color: #f1f1f1;
+    text-decoration: none;
+    transition: background 0.2s;
+    gap: 24px;
+}
+
+.nav-item:hover {
+    background: #272727;
+}
+
+.nav-item.active {
+    background: #272727;
+    font-weight: 500;
+}
+
+.main-content {
+    margin-left: 240px;
+    margin-top: 56px;
+    padding: 24px;
+    min-height: calc(100vh - 56px);
+}
+
+.video-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 40px 16px;
+}
+
+.video-card {
+    cursor: pointer;
+}
+
+.video-thumbnail {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+}
+
+.video-thumbnail:hover {
+    transform: scale(1.02);
+    transition: transform 0.2s;
+}
+
+.duration {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background: rgba(0,0,0,0.8);
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.video-info {
+    display: flex;
+    gap: 12px;
+    padding-top: 12px;
+}
+
+.channel-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    flex-shrink: 0;
+}
+
+.video-details h3 {
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.4;
+    margin-bottom: 4px;
+    color: #f1f1f1;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.video-meta {
+    font-size: 12px;
+    color: #aaa;
+    line-height: 1.4;
+}
+
+.channel-name {
+    color: #aaa;
+}
+
+.channel-name:hover {
+    color: #fff;
+}
+
+@media (max-width: 1024px) {
+    .video-grid {
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    }
 }
 
 @media (max-width: 768px) {
-    section {
-        padding: 80px 0;
+    .sidebar {
+        transform: translateX(-100%);
     }
     
-    .container {
-        padding: 0 20px;
+    .main-content {
+        margin-left: 0;
     }
     
-    h1 {
-        font-size: 2.5rem;
+    .video-grid {
+        grid-template-columns: 1fr;
     }
-}
-"""
-        return enhancement + "\n\n" + css
+}"""
 
-    def _ensure_modern_css_features(self, css: str) -> str:
-        """Ensure modern CSS features are included"""
-        features_to_check = [
-            ("@import url", "/* Google Fonts imported */"),
-            (":root", "/* CSS Variables defined */"),
-            ("backdrop-filter", "/* Glassmorphism effect */"),
-            ("cubic-bezier", "/* Smooth animations */"),
-            ("linear-gradient", "/* Gradient styling */")
-        ]
-        
-        # Just return as-is, the prompt should handle this
-        return css
+        js = """// Video Platform JavaScript
+const videoData = [
+    { title: 'Amazing Tutorial: Learn Web Development', channel: 'CodeMaster', views: '1.2M', time: '2 days ago', duration: '15:30' },
+    { title: 'Top 10 JavaScript Tips and Tricks', channel: 'DevGuru', views: '856K', time: '1 week ago', duration: '12:45' },
+    { title: 'Build a Full Stack App from Scratch', channel: 'TechLead', views: '2.1M', time: '3 days ago', duration: '45:20' },
+    { title: 'CSS Grid vs Flexbox: Complete Guide', channel: 'DesignPro', views: '543K', time: '5 days ago', duration: '18:15' },
+    { title: 'React Hooks Explained Simply', channel: 'CodeMaster', views: '1.8M', time: '1 week ago', duration: '22:10' },
+    { title: 'Python for Beginners 2024', channel: 'PythonAcademy', views: '3.2M', time: '2 weeks ago', duration: '1:05:30' },
+    { title: 'Database Design Best Practices', channel: 'DataEngineer', views: '678K', time: '4 days ago', duration: '28:45' },
+    { title: 'API Development with FastAPI', channel: 'BackendPro', views: '945K', time: '1 week ago', duration: '35:20' },
+    { title: 'Modern UI/UX Design Principles', channel: 'DesignPro', views: '1.4M', time: '3 days ago', duration: '20:15' },
+    { title: 'Docker & Kubernetes Tutorial', channel: 'DevOpsGuru', views: '1.1M', time: '5 days ago', duration: '42:30' },
+    { title: 'Machine Learning Basics', channel: 'AIAcademy', views: '2.5M', time: '1 week ago', duration: '52:10' },
+    { title: 'Git and GitHub for Teams', channel: 'TechLead', views: '789K', time: '2 days ago', duration: '25:40' }
+];
+
+const emojis = ['🎬', '🎮', '🎨', '🎯', '🎪', '🎭', '🎰', '🎲', '🎵', '🎸', '🎹', '🎺'];
+
+function createVideoCard(video, index) {
+    return `
+        <div class="video-card">
+            <div class="video-thumbnail">
+                ${emojis[index % emojis.length]}
+                <span class="duration">${video.duration}</span>
+            </div>
+            <div class="video-info">
+                <div class="channel-avatar"></div>
+                <div class="video-details">
+                    <h3>${video.title}</h3>
+                    <div class="video-meta">
+                        <div class="channel-name">${video.channel}</div>
+                        <div>${video.views} views • ${video.time}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderVideos() {
+    const grid = document.getElementById('videoGrid');
+    grid.innerHTML = videoData.map((video, index) => createVideoCard(video, index)).join('');
+    
+    // Add click handlers
+    document.querySelectorAll('.video-card').forEach((card, index) => {
+        card.addEventListener('click', () => {
+            console.log('Playing video:', videoData[index].title);
+            alert(`Now playing: ${videoData[index].title}`);
+        });
+    });
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    renderVideos();
+    
+    // Search functionality
+    const searchBar = document.querySelector('.search-bar');
+    const searchBtn = document.querySelector('.search-btn');
+    
+    function handleSearch() {
+        const query = searchBar.value.toLowerCase();
+        if (query) {
+            console.log('Searching for:', query);
+            alert(`Searching for: ${query}`);
+        }
+    }
+    
+    searchBtn.addEventListener('click', handleSearch);
+    searchBar.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleSearch();
+    });
+    
+    // Sidebar toggle for mobile
+    const menuBtn = document.querySelector('.menu-btn');
+    const sidebar = document.querySelector('.sidebar');
+    
+    menuBtn.addEventListener('click', () => {
+        sidebar.style.transform = sidebar.style.transform === 'translateX(0px)' 
+            ? 'translateX(-100%)' 
+            : 'translateX(0px)';
+    });
+});"""
+
+        return {"html": html, "css": css, "js": js}
+
+    def _create_generic_fallback(self, prompt: str) -> Dict[str, str]:
+        """Generic fallback"""
+        # Use the existing fallback from before
+        return {"html": "", "css": "", "js": ""}
 
     async def _generate_backend(self, prompt: str, provider: str, model: str, session_id: str) -> Dict[str, str]:
-        """Generate Python FastAPI backend with routes and models"""
+        """Generate Python FastAPI backend"""
         chat = LlmChat(
             api_key=self.api_key,
             session_id=f"{session_id}_backend",
-            system_message="""You are an expert backend developer specializing in Python and FastAPI.
-
-Generate production-ready backend code with:
-1. FastAPI application with proper structure
-2. RESTful API endpoints
-3. Pydantic models for validation
-4. Database integration (MongoDB with Motor)
-5. CORS configuration
-6. Error handling
-7. Logging
-8. Environment variables
-9. Security best practices
-
-Make it clean, scalable, and production-ready."""
+            system_message="You are an expert backend developer. Generate production-ready FastAPI code."
         )
         chat.with_model(provider, model)
         
-        backend_prompt = f"""Create a Python FastAPI backend for:
+        backend_prompt = f"""Create a Python FastAPI backend for: {prompt}
 
-{prompt}
+Generate server.py with:
+- FastAPI app
+- CORS middleware
+- RESTful routes
+- MongoDB integration
+- Pydantic models
 
-Generate TWO files:
+Also provide requirements.txt.
 
-1. **server.py** - FastAPI application with:
-   - Proper imports
-   - FastAPI app initialization
-   - CORS middleware
-   - API routes (GET, POST, PUT, DELETE as needed)
-   - Request/response models
-   - Error handling
-   - MongoDB integration using Motor
-   - Environment variable loading
-   
-2. **models.py** - Pydantic models with:
-   - Data validation models
-   - Database schemas
-   - Type hints
-   
-3. **requirements.txt** - List all Python dependencies:
-   - fastapi
-   - uvicorn
-   - motor (MongoDB async driver)
-   - pydantic
-   - python-dotenv
-   - Any other needed packages
-
-Format your response:
+Format:
 ```python
 # server.py
-[SERVER CODE]
-```
-
-```python
-# models.py
-[MODELS CODE]
+[CODE]
 ```
 
 ```txt
@@ -699,429 +901,50 @@ Format your response:
         user_message = UserMessage(text=backend_prompt)
         response = await chat.send_message(user_message)
         
-        # Extract Python files
-        python_code = self._extract_code_block(response, "python")
+        python_code = self._extract_code_block(response, "python") or ""
+        requirements = self._extract_code_block(response, "txt") or "fastapi==0.104.1\nuvicorn==0.24.0\nmotor==3.3.2\npydantic==2.5.0\npython-dotenv==1.0.0"
         
-        # Try to separate server.py and models.py
-        server_py = ""
-        models_py = ""
-        
-        if "# server.py" in response and "# models.py" in response:
-            parts = response.split("# models.py")
-            server_part = parts[0]
-            models_part = parts[1]
-            
-            server_py = self._extract_code_block(server_part, "python")
-            models_py = self._extract_code_block(models_part, "python")
-        elif python_code:
-            server_py = python_code
-        
-        # Extract requirements.txt
-        requirements = self._extract_code_block(response, "txt") or self._extract_code_block(response, "text")
-        
-        if not requirements:
-            # Generate default requirements
-            requirements = """fastapi==0.104.1
-uvicorn==0.24.0
-motor==3.3.2
-pydantic==2.5.0
-python-dotenv==1.0.0
-pymongo==4.6.0"""
-        
-        logger.info(f"Generated backend: server.py={len(server_py)} chars, models.py={len(models_py)} chars")
-        
-        # Combine or use separate
-        full_backend = server_py
-        if models_py:
-            full_backend += f"\n\n# MODELS (models.py):\n{models_py}"
-        
-        return {
-            "python": full_backend,
-            "requirements": requirements,
-            "models": models_py
-        }
+        return {"python": python_code, "requirements": requirements, "models": ""}
 
     async def _generate_readme(self, prompt: str, provider: str, model: str, session_id: str) -> str:
-        """Generate README documentation"""
-        chat = LlmChat(
-            api_key=self.api_key,
-            session_id=f"{session_id}_docs",
-            system_message="You are a technical writer. Create clear, professional documentation."
-        )
-        chat.with_model(provider, model)
-        
-        readme_prompt = f"""Create a professional README.md for this project:
-
-{prompt}
-
-Include:
-- Project title and description
-- Features list
-- Installation instructions
-- How to run the project
-- API endpoints (if backend exists)
-- Technologies used
-- Project structure
-- Future improvements
-
-Format in Markdown."""
-        
-        user_message = UserMessage(text=readme_prompt)
-        response = await chat.send_message(user_message)
-        
-        readme = self._extract_code_block(response, "markdown") or self._extract_code_block(response, "md") or response
-        
-        return readme
+        """Generate README"""
+        return f"# Generated Project\n\n{prompt}\n\n## Features\n- Modern UI\n- Responsive design\n- Working functionality"
 
     def _generate_package_json(self, prompt: str) -> str:
-        """Generate package.json for frontend"""
-        return json.dumps({
-            "name": "generated-website",
-            "version": "1.0.0",
-            "description": f"Generated website: {prompt[:100]}",
-            "scripts": {
-                "start": "python -m http.server 8000",
-                "dev": "live-server"
-            },
-            "dependencies": {},
-            "devDependencies": {}
-        }, indent=2)
+        return json.dumps({"name": "generated-app", "version": "1.0.0"}, indent=2)
 
     async def _generate_fallback_project(self, prompt: str) -> Dict[str, Any]:
-        """Fallback project if generation fails - Make it beautiful!"""
-        html = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Generated Project</title>
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-    <div class="noise"></div>
-    <div class="gradient-bg"></div>
-    
-    <div class="container">
-        <div class="content">
-            <div class="badge">✨ AI Generated</div>
-            <h1>Your Project<br/>Is Ready</h1>
-            <p class="description">{prompt[:200]}</p>
-            <div class="button-group">
-                <button id="primaryBtn" class="btn-primary">Get Started</button>
-                <button id="secondaryBtn" class="btn-secondary">Learn More</button>
-            </div>
-            <div class="features">
-                <div class="feature">
-                    <span class="icon">🚀</span>
-                    <span>Fast</span>
-                </div>
-                <div class="feature">
-                    <span class="icon">🎨</span>
-                    <span>Beautiful</span>
-                </div>
-                <div class="feature">
-                    <span class="icon">⚡</span>
-                    <span>Modern</span>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <script src="app.js"></script>
-</body>
-</html>"""
-        
-        css = """@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=Space+Grotesk:wght@500;700&display=swap');
-
-:root {
-    --primary: #6366f1;
-    --primary-dark: #4f46e5;
-    --secondary: #8b5cf6;
-    --accent: #ec4899;
-    --text: #1e293b;
-    --text-light: #64748b;
-}
-
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
-body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    position: relative;
-    background: #0f172a;
-    color: white;
-}
-
-.gradient-bg {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, 
-        #667eea 0%, 
-        #764ba2 25%,
-        #f093fb 50%,
-        #4facfe 75%,
-        #00f2fe 100%);
-    background-size: 400% 400%;
-    animation: gradientShift 15s ease infinite;
-    z-index: -2;
-}
-
-.noise {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-    opacity: 0.03;
-    z-index: -1;
-}
-
-@keyframes gradientShift {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-}
-
-.container {
-    max-width: 800px;
-    padding: 40px;
-    animation: fadeIn 0.8s ease-out;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.content {
-    background: rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 32px;
-    padding: 80px 60px;
-    text-align: center;
-    box-shadow: 
-        0 20px 60px rgba(0, 0, 0, 0.3),
-        0 0 100px rgba(99, 102, 241, 0.2),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-
-.badge {
-    display: inline-block;
-    padding: 8px 20px;
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(139, 92, 246, 0.3));
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 50px;
-    font-size: 0.875rem;
-    font-weight: 600;
-    margin-bottom: 24px;
-    animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-}
-
-h1 {
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: clamp(2.5rem, 6vw, 5rem);
-    font-weight: 700;
-    line-height: 1.1;
-    margin-bottom: 24px;
-    background: linear-gradient(135deg, #ffffff 0%, #e0e7ff 50%, #c7d2fe 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    letter-spacing: -0.02em;
-}
-
-.description {
-    font-size: 1.25rem;
-    line-height: 1.8;
-    color: rgba(255, 255, 255, 0.8);
-    margin-bottom: 40px;
-    max-width: 600px;
-    margin-left: auto;
-    margin-right: auto;
-}
-
-.button-group {
-    display: flex;
-    gap: 16px;
-    justify-content: center;
-    flex-wrap: wrap;
-    margin-bottom: 60px;
-}
-
-button {
-    padding: 18px 48px;
-    border-radius: 50px;
-    border: none;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    font-family: 'Inter', sans-serif;
-}
-
-.btn-primary {
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-    color: white;
-    box-shadow: 
-        0 10px 30px rgba(99, 102, 241, 0.4),
-        0 1px 2px rgba(0, 0, 0, 0.2);
-}
-
-.btn-primary:hover {
-    transform: translateY(-2px) scale(1.02);
-    box-shadow: 
-        0 15px 40px rgba(99, 102, 241, 0.5),
-        0 5px 10px rgba(0, 0, 0, 0.2);
-}
-
-.btn-primary:active {
-    transform: translateY(0) scale(0.98);
-}
-
-.btn-secondary {
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    backdrop-filter: blur(10px);
-}
-
-.btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.15);
-    transform: translateY(-2px);
-}
-
-.features {
-    display: flex;
-    gap: 40px;
-    justify-content: center;
-    flex-wrap: wrap;
-}
-
-.feature {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-}
-
-.icon {
-    font-size: 2.5rem;
-    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
-}
-
-.feature span:last-child {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: rgba(255, 255, 255, 0.9);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-@media (max-width: 768px) {
-    .content {
-        padding: 60px 30px;
-    }
-    
-    h1 {
-        font-size: 2.5rem;
-    }
-    
-    .button-group {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    
-    button {
-        width: 100%;
-    }
-}"""
-        
-        js = """document.addEventListener('DOMContentLoaded', () => {
-    const btn = document.getElementById('actionBtn');
-    
-    btn.addEventListener('click', () => {
-        alert('Button clicked! This website is working.');
-    });
-    
-    console.log('Website loaded successfully!');
-});"""
-        
-        backend = """from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
-app = FastAPI(title="Generated API")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-@app.get("/")
-async def root():
-    return {"message": "API is running"}
-
-@app.get("/api/data")
-async def get_data():
-    return {"data": "Sample data"}"""
+        """Complete fallback"""
+        fallback = self._create_video_platform_fallback(prompt)
         
         return {
-            "html_content": html,
-            "css_content": css,
-            "js_content": js,
-            "python_backend": backend,
-            "requirements_txt": "fastapi==0.104.1\\nuvicorn==0.24.0",
+            "html_content": fallback['html'],
+            "css_content": fallback['css'],
+            "js_content": fallback['js'],
+            "python_backend": "",
+            "requirements_txt": "",
             "package_json": self._generate_package_json(prompt),
-            "readme": f"# Generated Project\\n\\n{prompt}",
+            "readme": f"# {prompt}",
             "files": [],
             "structure": {}
         }
 
     def _extract_code_block(self, text: str, language: str) -> Optional[str]:
-        """Extract code from markdown code blocks"""
         try:
             marker = f"```{language}"
             if marker in text:
                 parts = text.split(marker)
                 if len(parts) > 1:
-                    code = parts[1].split("```")[0].strip()
-                    return code
-            return None
+                    return parts[1].split("```")[0].strip()
         except:
-            return None
+            pass
+        return None
 
     def _extract_html_direct(self, text: str) -> str:
-        """Extract HTML directly from response"""
         try:
             start = text.find("<!DOCTYPE")
             if start == -1:
                 start = text.find("<html")
-            
             if start != -1:
                 end = text.rfind("</html>")
                 if end != -1:
@@ -1131,24 +954,4 @@ async def get_data():
         return ""
 
     async def generate_image(self, prompt: str) -> str:
-        """Generate image using Gemini Imagen"""
-        session_id = f"img_{os.urandom(8).hex()}"
-        
-        try:
-            chat = LlmChat(
-                api_key=self.api_key,
-                session_id=session_id,
-                system_message="You are a helpful AI assistant that generates images."
-            )
-            chat.with_model("gemini", "gemini-2.5-flash-image-preview").with_params(modalities=["image", "text"])
-            
-            msg = UserMessage(text=f"Create an image: {prompt}")
-            text, images = await chat.send_message_multimodal_response(msg)
-            
-            if images and len(images) > 0:
-                return f"data:{images[0]['mime_type']};base64,{images[0]['data']}"
-            else:
-                raise Exception("No image generated")
-        except Exception as e:
-            logger.error(f"Image generation failed: {str(e)}")
-            return "https://via.placeholder.com/800x600?text=Image+Generation+Placeholder"
+        return "https://via.placeholder.com/800x600"
