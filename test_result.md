@@ -218,6 +218,18 @@ frontend:
       - working: "needs_testing"
         agent: "main"
         comment: "Updated PreviewPanel to use preview_url from backend instead of srcDoc. If preview_url exists, loads from file server endpoint, otherwise falls back to embedded srcDoc. This allows proper file loading with external CSS/JS references working correctly."
+  
+  - task: "Remove Emergent Badge/Watermark"
+    implemented: true
+    working: true
+    file: "/app/frontend/public/index.html"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Removed 'Made with Emergent' badge from bottom right corner. Deleted lines 65-111 in index.html containing the fixed position badge element with logo and text. Clean UI without watermark."
 
 metadata:
   created_by: "main_agent"
