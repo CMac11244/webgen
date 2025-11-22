@@ -324,7 +324,7 @@ Generate THREE separate code blocks, but remember the HTML will contain EMBEDDED
         )
         chat.with_model(provider, model)
         
-        frontend_prompt = f"""CREATE A FUNCTIONAL {analysis.get('app_type', 'website').upper()}:
+        frontend_prompt = f"""🚀 CREATE A PROFESSIONAL {analysis.get('app_type', 'website').upper()} 🚀
 
 USER REQUEST: {prompt}
 
@@ -334,29 +334,60 @@ KEY COMPONENTS: {', '.join(analysis.get('key_components', []))}
 VISUAL STYLE: {analysis.get('visual_style')}
 LAYOUT: {analysis.get('layout_pattern')}
 
-GENERATE:
+═══════════════════════════════════════════════════════════════
+📚 REQUIRED CDN LIBRARIES (Add to <head>):
+═══════════════════════════════════════════════════════════════
 
-1. **index.html** - Complete HTML with:
+<!-- Font Awesome Icons (REQUIRED - Use instead of emojis) -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<!-- Material Icons (Alternative icon set) -->
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+<!-- Animate.css (For smooth animations) -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+
+ICON EXAMPLES:
+- Home: <i class="fas fa-home"></i>
+- Search: <i class="fas fa-search"></i>  
+- Video/Play: <i class="fas fa-play-circle"></i>
+- User: <i class="fas fa-user-circle"></i>
+- Menu: <i class="fas fa-bars"></i>
+- Heart/Like: <i class="fas fa-heart"></i>
+- Bell: <i class="fas fa-bell"></i>
+- Settings: <i class="fas fa-cog"></i>
+- Shopping Cart: <i class="fas fa-shopping-cart"></i>
+- Star: <i class="fas fa-star"></i>
+
+═══════════════════════════════════════════════════════════════
+
+GENERATE THREE FILES (CSS and JS will be embedded in HTML):
+
+1. **index.html** - Complete self-contained HTML with:
+   - CDN library links in <head>
+   - Embedded <style> with ALL CSS
    - Proper semantic structure
-   - ALL components listed above (don't skip any!)
+   - ALL components listed above
+   - Font Awesome icons (NOT emojis)
    - Realistic placeholder content
-   - <link rel="stylesheet" href="styles.css">
-   - <script src="app.js"></script> before </body>
+   - Embedded <script> with ALL JavaScript
 
-2. **styles.css** - Complete CSS with:
-   - Exact styling to match the reference site
+2. **styles.css** - Duplicate of embedded CSS:
+   - Modern color palette
    - Proper layout (Grid/Flexbox)
-   - Responsive design
+   - Responsive design (@media queries)
    - All component styles
-   - Modern effects
-   - MINIMUM 600 lines of detailed CSS
+   - Hover effects and transitions
+   - Animations
+   - MINIMUM 600 lines
 
-3. **app.js** - Working JavaScript with:
+3. **app.js** - Duplicate of embedded JavaScript:
    - DOM manipulation
    - Event handlers
    - Interactive features
    - State management
-   - API simulation
+   - Smooth animations
+   - API integration ready
 
 FORMAT:
 ```html
