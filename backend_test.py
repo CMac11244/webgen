@@ -563,15 +563,194 @@ class WebsiteGenerationTester:
         
         return test_result
 
+    async def test_format_specifier_fix(self):
+        """Test the format specifier fix resolves repetitive website generation"""
+        logger.info("\n" + "="*60)
+        logger.info("TEST: FORMAT SPECIFIER FIX - UNIQUE WEBSITE GENERATION")
+        logger.info("="*60)
+        
+        # Test 1: E-commerce Site
+        logger.info("🛒 Testing E-commerce Site Generation...")
+        ecommerce_session = await self.create_session("E-commerce Test")
+        if not ecommerce_session:
+            return {"success": False, "error": "Failed to create e-commerce session"}
+        
+        ecommerce_result = await self.generate_website(
+            ecommerce_session,
+            "Create an online store for selling shoes",
+            framework="html"
+        )
+        
+        # Test 2: Portfolio Site  
+        logger.info("📸 Testing Portfolio Site Generation...")
+        portfolio_session = await self.create_session("Portfolio Test")
+        if not portfolio_session:
+            return {"success": False, "error": "Failed to create portfolio session"}
+        
+        portfolio_result = await self.generate_website(
+            portfolio_session,
+            "Create a portfolio website for a photographer",
+            framework="html"
+        )
+        
+        validation_errors = []
+        
+        # Check both generations succeeded
+        if not ecommerce_result.get('success'):
+            validation_errors.append(f"E-commerce generation failed: {ecommerce_result.get('error')}")
+        if not portfolio_result.get('success'):
+            validation_errors.append(f"Portfolio generation failed: {portfolio_result.get('error')}")
+        
+        if validation_errors:
+            return {
+                "test_name": "Format Specifier Fix",
+                "success": False,
+                "validation_errors": validation_errors
+            }
+        
+        # Check for format specifier errors in logs
+        try:
+            import subprocess
+            log_result = subprocess.run(
+                ['tail', '-n', '100', '/var/log/supervisor/backend.err.log'],
+                capture_output=True,
+                text=True
+            )
+            backend_logs = log_result.stdout
+            
+            format_errors = [
+                "Invalid format specifier" in backend_logs,
+                "Complete project generation failed" in backend_logs,
+                "ERROR" in backend_logs and "format" in backend_logs.lower()
+            ]
+            
+            if any(format_errors):
+                validation_errors.append("Format specifier errors found in backend logs")
+            else:
+                logger.info("✅ No format specifier errors in logs")
+                
+        except Exception as e:
+            validation_errors.append(f"Could not check backend logs: {e}")
+        
+        # Check for intent analysis in logs
+        try:
+            intent_analysis_found = "Intent analysis" in backend_logs
+            if intent_analysis_found:
+                logger.info("✅ Intent analysis working properly")
+            else:
+                validation_errors.append("Intent analysis not found in logs")
+        except:
+            validation_errors.append("Could not verify intent analysis")
+        
+        # Verify different titles
+        ecommerce_html = ecommerce_result.get('html_content', '')
+        portfolio_html = portfolio_result.get('html_content', '')
+        
+        ecommerce_title = self._extract_title(ecommerce_html)
+        portfolio_title = self._extract_title(portfolio_html)
+        
+        logger.info(f"E-commerce title: '{ecommerce_title}'")
+        logger.info(f"Portfolio title: '{portfolio_title}'")
+        
+        if ecommerce_title == portfolio_title:
+            validation_errors.append(f"Both sites have same title: '{ecommerce_title}'")
+        elif "VideoTube" in ecommerce_title or "VideoTube" in portfolio_title:
+            validation_errors.append("Sites are using VideoTube fallback template")
+        else:
+            logger.info("✅ Sites have different, appropriate titles")
+        
+        # Verify different file sizes
+        ecommerce_size = len(ecommerce_html)
+        portfolio_size = len(portfolio_html)
+        
+        logger.info(f"E-commerce HTML size: {ecommerce_size} chars")
+        logger.info(f"Portfolio HTML size: {portfolio_size} chars")
+        
+        if ecommerce_size == portfolio_size:
+            validation_errors.append(f"Both sites have identical HTML size: {ecommerce_size} chars")
+        else:
+            logger.info("✅ Sites have different HTML sizes")
+        
+        # Verify content matches request type
+        ecommerce_has_shopping = any([
+            "shop" in ecommerce_html.lower(),
+            "store" in ecommerce_html.lower(), 
+            "product" in ecommerce_html.lower(),
+            "cart" in ecommerce_html.lower(),
+            "buy" in ecommerce_html.lower(),
+            "shoe" in ecommerce_html.lower()
+        ])
+        
+        portfolio_has_photography = any([
+            "photo" in portfolio_html.lower(),
+            "portfolio" in portfolio_html.lower(),
+            "gallery" in portfolio_html.lower(),
+            "image" in portfolio_html.lower(),
+            "work" in portfolio_html.lower()
+        ])
+        
+        if not ecommerce_has_shopping:
+            validation_errors.append("E-commerce site doesn't contain shopping-related content")
+        else:
+            logger.info("✅ E-commerce site has shopping-related content")
+            
+        if not portfolio_has_photography:
+            validation_errors.append("Portfolio site doesn't contain photography-related content")
+        else:
+            logger.info("✅ Portfolio site has photography-related content")
+        
+        # Check generation times (should be reasonable, not suspiciously fast)
+        ecommerce_time = ecommerce_result.get('generation_time', 0)
+        portfolio_time = portfolio_result.get('generation_time', 0)
+        
+        if ecommerce_time < 5:
+            validation_errors.append(f"E-commerce generation suspiciously fast: {ecommerce_time:.2f}s")
+        if portfolio_time < 5:
+            validation_errors.append(f"Portfolio generation suspiciously fast: {portfolio_time:.2f}s")
+        
+        test_result = {
+            "test_name": "Format Specifier Fix",
+            "success": len(validation_errors) == 0,
+            "ecommerce_session": ecommerce_session,
+            "portfolio_session": portfolio_session,
+            "ecommerce_title": ecommerce_title,
+            "portfolio_title": portfolio_title,
+            "ecommerce_size": ecommerce_size,
+            "portfolio_size": portfolio_size,
+            "ecommerce_time": ecommerce_time,
+            "portfolio_time": portfolio_time,
+            "ecommerce_has_shopping": ecommerce_has_shopping,
+            "portfolio_has_photography": portfolio_has_photography,
+            "validation_errors": validation_errors
+        }
+        
+        self.test_results.append(test_result)
+        
+        if test_result['success']:
+            logger.info("✅ Format specifier fix test PASSED")
+            logger.info("   - No format specifier errors in logs")
+            logger.info("   - Both generations completed successfully")
+            logger.info("   - Intent analysis working properly")
+            logger.info("   - Generated websites have different titles")
+            logger.info("   - HTML file sizes are different")
+            logger.info("   - E-commerce site has shopping-related content")
+            logger.info("   - Portfolio site has photography-related content")
+        else:
+            logger.error("❌ Format specifier fix test FAILED")
+            for error in validation_errors:
+                logger.error(f"   - {error}")
+        
+        return test_result
+
     async def run_all_tests(self):
         """Run all tests"""
-        logger.info("🚀 Starting AI Website Generation Tests")
+        logger.info("🚀 Starting Format Specifier Fix Test")
         logger.info(f"Backend URL: {self.base_url}")
         
         start_time = time.time()
         
-        # Run tests - focusing on file extraction system as requested
-        test4 = await self.test_file_extraction_system()
+        # Run the specific test for format specifier fix
+        test_result = await self.test_format_specifier_fix()
         
         total_time = time.time() - start_time
         
