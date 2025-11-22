@@ -59,6 +59,13 @@ class Message(BaseModel):
     content: str
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+class ProjectFile(BaseModel):
+    """Represents a single file in the generated project"""
+    filename: str
+    content: str
+    file_type: str  # 'html', 'css', 'js', 'python', 'json', 'md'
+    description: str = ""
+
 class GeneratedWebsite(BaseModel):
     model_config = ConfigDict(extra="ignore")
     website_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -66,10 +73,15 @@ class GeneratedWebsite(BaseModel):
     html_content: Optional[str] = None
     css_content: Optional[str] = None
     js_content: Optional[str] = None
+    python_backend: Optional[str] = None
+    requirements_txt: Optional[str] = None
+    package_json: Optional[str] = None
+    readme: Optional[str] = None
     framework: str = "html"  # html, react, or nextjs
     preview_url: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     structure: Optional[Dict[str, Any]] = None
+    files: Optional[List[Dict[str, Any]]] = None  # List of all project files
 
 class UploadedAsset(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -87,7 +99,7 @@ class SessionCreate(BaseModel):
 class ChatRequest(BaseModel):
     session_id: str
     message: str
-    model: str = "claude-sonnet-4"  # default model
+    model: str = "gpt-5"  # changed default to gpt-5
 
 class ChatResponse(BaseModel):
     message_id: str
@@ -98,7 +110,7 @@ class ChatResponse(BaseModel):
 class GenerateWebsiteRequest(BaseModel):
     session_id: str
     prompt: str
-    model: str = "claude-sonnet-4"
+    model: str = "gpt-5"  # changed default to gpt-5
     framework: str = "html"
 
 # API Endpoints
@@ -194,7 +206,7 @@ async def send_message(request: ChatRequest):
 
 @api_router.post("/generate/website", response_model=GeneratedWebsite)
 async def generate_website(request: GenerateWebsiteRequest):
-    """Generate complete website code"""
+    """Generate complete website with backend"""
     logger.info(f"Generating website for session {request.session_id}")
     
     # Get conversation history
@@ -203,8 +215,8 @@ async def generate_website(request: GenerateWebsiteRequest):
         {"_id": 0}
     ).sort("timestamp", 1).to_list(100)
     
-    # Generate website using AI
-    website_data = await ai_service.generate_website(
+    # Generate website using AI with full project structure
+    website_data = await ai_service.generate_complete_project(
         prompt=request.prompt,
         model=request.model,
         framework=request.framework,
@@ -217,13 +229,20 @@ async def generate_website(request: GenerateWebsiteRequest):
         html_content=website_data.get('html_content'),
         css_content=website_data.get('css_content'),
         js_content=website_data.get('js_content'),
+        python_backend=website_data.get('python_backend'),
+        requirements_txt=website_data.get('requirements_txt'),
+        package_json=website_data.get('package_json'),
+        readme=website_data.get('readme'),
         framework=request.framework,
-        structure=website_data.get('structure')
+        structure=website_data.get('structure'),
+        files=website_data.get('files', [])
     )
     
     doc = website.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
     await db.generated_websites.insert_one(doc)
+    
+    logger.info(f"Website saved with {len(website.files or [])} files")
     
     return website
 
@@ -297,8 +316,8 @@ async def get_available_models():
     """Get list of available AI models"""
     return {
         "models": [
-            {"id": "claude-sonnet-4", "name": "Claude Sonnet 4", "provider": "anthropic"},
-            {"id": "gpt-5", "name": "GPT-5", "provider": "openai"},
+            {"id": "gpt-5", "name": "GPT-5", "provider": "openai", "recommended": True},
+            {"id": "claude-sonnet-4", "name": "Claude Sonnet 4", "provider": "anthropic", "recommended": True},
             {"id": "gpt-5-mini", "name": "GPT-5 Mini", "provider": "openai"},
             {"id": "gemini-2.5-pro", "name": "Gemini 2.5 Pro", "provider": "gemini"}
         ]
