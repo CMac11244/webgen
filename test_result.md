@@ -138,6 +138,9 @@ backend:
       - working: true
         agent: "main"
         comment: "PROPER EDITING AGENT IMPLEMENTED - Major enhancement for iterative development. Changes: 1) Shows COMPLETE existing code to AI (not previews), 2) Separate editing prompt for modifications vs creation, 3) Explicit instructions: 'make surgical edits', 'keep everything else', 'don't rebuild', 4) Editing mode prompt emphasizes preservation of existing features, 5) AI receives full HTML/CSS/JS to understand structure, 6) Clear DO/DON'T guidelines for editing vs creating. System now properly modifies existing websites instead of regenerating from scratch."
+      - working: true
+        agent: "main"
+        comment: "EDIT-ONLY MODE ENFORCEMENT - Session locked after first website. Changes: 1) Frontend checks if generatedWebsite exists - if yes, ALWAYS routes to generateWebsite (edit mode), 2) No keyword detection needed once website exists, 3) Backend logs EDIT-ONLY MODE when existing website found, 4) Enhanced editing prompt with explicit 'DO NOT CREATE NEW' instructions, 5) Added editing examples showing how 'create X' means 'add X to existing', 6) System now treats ALL prompts as edits once website exists in session. User can build iteratively without losing work."
   - task: "File-based Preview System - Professional Architecture"
     implemented: true
     working: true
