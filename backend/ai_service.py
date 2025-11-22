@@ -1007,7 +1007,9 @@ body {
 </body>
 </html>"""
 
-        css = """@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+        # Extract the embedded CSS and JS for the separate tabs
+        css_match = re.search(r'<style>(.*?)</style>', html, re.DOTALL)
+        css = css_match.group(1).strip() if css_match else """@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
