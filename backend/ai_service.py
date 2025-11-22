@@ -469,17 +469,37 @@ MAKE IT LOOK AND FUNCTION LIKE THE REAL THING!"""
         user_message = UserMessage(text=frontend_prompt)
         response = await chat.send_message(user_message)
         
-        # Extract code
+        logger.info(f"AI Response received: {len(response)} characters")
+        logger.info(f"Response preview (first 500 chars): {response[:500]}")
+        
+        # Extract code with improved logic
         html = self._extract_code_block(response, "html") or ""
         css = self._extract_code_block(response, "css") or ""
         js = self._extract_code_block(response, "javascript") or self._extract_code_block(response, "js") or ""
         
         logger.info(f"Initial extraction: HTML={len(html)} chars, CSS={len(css)} chars, JS={len(js)} chars")
         
-        # Fallback extraction
-        if not html and "<!DOCTYPE" in response:
-            html = self._extract_html_direct(response)
-            logger.info(f"Direct HTML extraction applied: {len(html)} chars")
+        # Fallback extraction - try multiple methods
+        if not html:
+            logger.info("Primary HTML extraction failed, trying direct extraction...")
+            if "<!DOCTYPE" in response or "<html" in response:
+                html = self._extract_html_direct(response)
+                logger.info(f"Direct HTML extraction result: {len(html)} chars")
+        
+        # If we have HTML but no CSS/JS, try to extract them separately
+        if html and not css:
+            logger.info("Attempting to extract CSS from response...")
+            css_match = re.search(r'```css\s*(.*?)\s*```', response, re.DOTALL)
+            if css_match:
+                css = css_match.group(1).strip()
+                logger.info(f"Extracted CSS via regex: {len(css)} chars")
+        
+        if html and not js:
+            logger.info("Attempting to extract JavaScript from response...")
+            js_match = re.search(r'```(?:javascript|js)\s*(.*?)\s*```', response, re.DOTALL)
+            if js_match:
+                js = js_match.group(1).strip()
+                logger.info(f"Extracted JS via regex: {len(js)} chars")
         
         # CRITICAL: For iframe preview, CSS and JS MUST be embedded in HTML
         # Remove any external file references and embed the content
@@ -487,6 +507,8 @@ MAKE IT LOOK AND FUNCTION LIKE THE REAL THING!"""
             # Check if HTML has embedded styles
             has_embedded_css = "<style>" in html
             has_embedded_js = "<script>" in html and "src=" not in html[:html.find("<script>") + 50] if "<script>" in html else False
+            
+            logger.info(f"Embedded check: CSS={has_embedded_css}, JS={has_embedded_js}")
             
             if not has_embedded_css and css:
                 # Embed CSS into HTML
@@ -508,9 +530,17 @@ MAKE IT LOOK AND FUNCTION LIKE THE REAL THING!"""
             html = re.sub(r'<link[^>]*href=["\']styles\.css["\'][^>]*>', '', html)
             html = re.sub(r'<script[^>]*src=["\']app\.js["\'][^>]*></script>', '', html)
         
-        # Validate quality - retry generation if needed, don't use fallback
-        if len(html) < 500 or "<style>" not in html:
-            logger.warning(f"HTML invalid or too short ({len(html)} chars), retrying generation...")
+        # More lenient validation - focus on structure rather than size
+        has_doctype = "<!DOCTYPE" in html or "<html" in html
+        has_head = "<head>" in html or "<head " in html
+        has_body = "<body>" in html or "<body " in html
+        has_styles = "<style>" in html or "style=" in html or len(css) > 0
+        
+        logger.info(f"Validation: doctype={has_doctype}, head={has_head}, body={has_body}, styles={has_styles}, html_length={len(html)}")
+        
+        # Only retry if we have a fundamentally broken HTML structure
+        if not has_doctype or not has_body or len(html) < 200:
+            logger.warning(f"HTML structure invalid (doctype={has_doctype}, body={has_body}, length={len(html)}), retrying generation...")
             
             # Retry with more explicit instructions
             retry_prompt = f"""GENERATE COMPLETE, SELF-CONTAINED HTML FOR:
@@ -519,7 +549,7 @@ MAKE IT LOOK AND FUNCTION LIKE THE REAL THING!"""
 
 REQUIREMENTS:
 1. MUST be a complete HTML document starting with <!DOCTYPE html>
-2. MUST include embedded <style> tags in <head> with AT LEAST 500 lines of CSS
+2. MUST include embedded <style> tags in <head> with comprehensive CSS
 3. MUST include embedded <script> tags before </body> with working JavaScript
 4. MUST match the request exactly (if they ask for YouTube, make a video platform)
 5. Use Font Awesome icons: <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -534,33 +564,40 @@ Generate ONLY the complete HTML code in a ```html code block."""
             retry_chat.with_model(provider, model)
             
             retry_response = await retry_chat.send_message(UserMessage(text=retry_prompt))
+            logger.info(f"Retry response received: {len(retry_response)} characters")
             
             # Extract again
             html = self._extract_code_block(retry_response, "html") or self._extract_html_direct(retry_response)
+            logger.info(f"Retry extraction result: {len(html)} chars")
             
             # If still invalid, extract CSS/JS and embed
             if html and "<style>" not in html and css:
+                logger.info("Embedding previously extracted CSS into retry HTML")
                 if "</head>" in html:
                     html = html.replace("</head>", f"<style>\n{css}\n</style>\n</head>")
             
             if html and "<script>" not in html and js:
+                logger.info("Embedding previously extracted JS into retry HTML")
                 if "</body>" in html:
                     html = html.replace("</body>", f"<script>\n{js}\n</script>\n</body>")
         
-        # Final validation - if STILL no good HTML, use proper fallback templates
-        if not html or len(html) < 300:
-            logger.warning(f"Generation failed after retry (HTML length: {len(html)}). Using context-aware fallback template.")
+        # ONLY use fallback if generation completely failed (very rare)
+        if not html or len(html) < 100:
+            logger.error(f"CRITICAL: Generation completely failed (HTML length: {len(html)}). Using dynamic fallback.")
             fallback_result = await self._generate_fallback_frontend(prompt, analysis)
             html = fallback_result.get('html', '')
             css = fallback_result.get('css', '')
             js = fallback_result.get('js', '')
             logger.info(f"Fallback template applied: HTML={len(html)}, CSS={len(css)}, JS={len(js)}")
+        else:
+            logger.info("✅ Generation successful - using AI-generated code")
         
-        if len(css) < 300:
+        if len(css) < 300 and "<style>" not in html:
             logger.warning(f"CSS too short ({len(css)} chars), enhancing")
             css = self._enhance_css_for_app_type(css, analysis)
         
-        logger.info(f"Generated: HTML={len(html)}, CSS={len(css)}, JS={len(js)}")
+        logger.info(f"FINAL OUTPUT: HTML={len(html)}, CSS={len(css)}, JS={len(js)}")
+        logger.info("=" * 80)
         
         return {"html": html, "css": css, "js": js}
 
