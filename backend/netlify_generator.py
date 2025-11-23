@@ -49,7 +49,7 @@ class NetlifyGenerator:
         provider, model_name = self._get_model_config(model)
         session_id = f"netlify_{os.urandom(8).hex()}"
         
-        logger.info(f"🚀 NETLIFY PROJECT GENERATION")
+        logger.info("🚀 NETLIFY PROJECT GENERATION")
         logger.info(f"   Model: {provider}/{model_name}")
         logger.info(f"   Prompt: {prompt}")
         
@@ -57,10 +57,10 @@ class NetlifyGenerator:
         is_editing = current_project is not None and len(current_project.get("files", {})) > 0
         
         if is_editing:
-            logger.info(f"📝 EDIT MODE: Modifying existing Netlify project")
+            logger.info("📝 EDIT MODE: Modifying existing Netlify project")
             return await self._edit_netlify_project(prompt, current_project, provider, model_name, session_id)
         else:
-            logger.info(f"🆕 NEW PROJECT: Creating from scratch")
+            logger.info("🆕 NEW PROJECT: Creating from scratch")
             return await self._create_netlify_project(prompt, provider, model_name, session_id)
     
     async def _create_netlify_project(self, prompt: str, provider: str, model: str, session_id: str) -> Dict[str, Any]:
@@ -224,20 +224,20 @@ REMEMBER: Beautiful design is great, but COMPLETENESS is mandatory. Every featur
             html_content = project_data.get("files", {}).get("index.html", "")
             validation = self._validate_requirements(html_content, requirements)
             
-            logger.info(f"📊 Requirements validation:")
+            logger.info("📊 Requirements validation:")
             logger.info(f"   Completeness: {validation['completeness_score']:.1f}%")
             logger.info(f"   Found: {len(validation['found_requirements'])} requirements")
             logger.info(f"   Missing: {len(validation['missing_requirements'])} requirements")
             
             if validation["missing_requirements"]:
-                logger.warning(f"⚠️ Missing requirements detected:")
+                logger.warning("⚠️ Missing requirements detected:")
                 for missing in validation["missing_requirements"]:
                     logger.warning(f"   - {missing}")
                 
                 # If more than 30% requirements missing, retry with enhanced prompt
                 if validation["completeness_score"] < 70:
                     logger.error(f"❌ Completeness score too low ({validation['completeness_score']:.1f}%)")
-                    logger.info(f"🔄 Retrying with enhanced prompt to include missing requirements...")
+                    logger.info("🔄 Retrying with enhanced prompt to include missing requirements...")
                     
                     # Retry with explicit missing requirements
                     retry_result = await self._retry_with_missing_requirements(
@@ -373,7 +373,7 @@ Ensure the edited project remains Netlify-compatible!"""
         """
         Retry generation with explicit focus on missing requirements
         """
-        logger.info(f"🔄 RETRY: Adding missing requirements to generation")
+        logger.info("🔄 RETRY: Adding missing requirements to generation")
         
         missing_list = "\n".join([f"- {req}" for req in missing_requirements])
         
@@ -417,10 +417,10 @@ Focus especially on the missing items, but don't remove anything you already had
                 logger.info(f"📊 Retry validation: {retry_validation['completeness_score']:.1f}%")
                 
                 if retry_validation["completeness_score"] > 70:
-                    logger.info(f"✅ Retry successful! Completeness improved.")
+                    logger.info("✅ Retry successful! Completeness improved.")
                     return project_data
                 else:
-                    logger.warning(f"⚠️ Retry still incomplete. Proceeding with best effort.")
+                    logger.warning("⚠️ Retry still incomplete. Proceeding with best effort.")
                     return project_data
             
         except Exception as e:
