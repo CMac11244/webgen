@@ -397,6 +397,149 @@ async def get_available_models():
     }
 
 # ============================================================================
+# NETLIFY DEPLOYMENT ENDPOINTS - Generate Netlify-ready projects
+# ============================================================================
+
+class NetlifyProjectRequest(BaseModel):
+    session_id: str
+    prompt: str
+    model: str = "gpt-5"
+    edit_mode: bool = False  # True if editing existing project
+
+class NetlifyProjectResponse(BaseModel):
+    project_id: str
+    session_id: str
+    files: Dict[str, str]  # filepath: content
+    deploy_config: Dict[str, Any]
+    created_at: datetime
+    download_url: Optional[str] = None
+    netlify_deploy_url: Optional[str] = None
+
+@api_router.post("/netlify/generate", response_model=NetlifyProjectResponse)
+async def generate_netlify_project(request: NetlifyProjectRequest):
+    """
+    Generate a complete Netlify-deployable project
+    Returns structured files ready for Git repository deployment
+    """
+    logger.info(f"🚀 NETLIFY PROJECT GENERATION")
+    logger.info(f"   Session: {request.session_id}")
+    logger.info(f"   Prompt: {request.prompt}")
+    logger.info(f"   Edit Mode: {request.edit_mode}")
+    
+    # Get current project if in edit mode
+    current_project = None
+    if request.edit_mode:
+        try:
+            projects = await db.netlify_projects.find(
+                {"session_id": request.session_id},
+                {"_id": 0}
+            ).sort("created_at", -1).limit(1).to_list(1)
+            
+            if projects:
+                current_project = projects[0]
+                logger.info(f"Found existing project to edit: {current_project.get('project_id')}")
+        except Exception as e:
+            logger.warning(f"Could not retrieve existing project: {str(e)}")
+    
+    # Generate Netlify project
+    project_data = await netlify_generator.generate_netlify_project(
+        prompt=request.prompt,
+        model=request.model,
+        current_project=current_project
+    )
+    
+    # Create project response
+    project_id = str(uuid.uuid4())
+    
+    netlify_project = {
+        "project_id": project_id,
+        "session_id": request.session_id,
+        "files": project_data.get("files", {}),
+        "deploy_config": project_data.get("deploy_config", {}),
+        "created_at": datetime.now(timezone.utc),
+        "prompt": request.prompt
+    }
+    
+    # Save to database
+    doc = netlify_project.copy()
+    doc['created_at'] = doc['created_at'].isoformat()
+    await db.netlify_projects.insert_one(doc)
+    
+    logger.info(f"✅ Netlify project generated: {project_id}")
+    logger.info(f"   Files: {len(project_data.get('files', {}))}")
+    
+    # Convert to response model
+    response = NetlifyProjectResponse(
+        project_id=project_id,
+        session_id=request.session_id,
+        files=project_data.get("files", {}),
+        deploy_config=project_data.get("deploy_config", {}),
+        created_at=netlify_project["created_at"] if isinstance(netlify_project["created_at"], datetime) else datetime.fromisoformat(netlify_project["created_at"])
+    )
+    
+    return response
+
+@api_router.get("/netlify/project/{project_id}")
+async def get_netlify_project(project_id: str):
+    """Get a specific Netlify project"""
+    project = await db.netlify_projects.find_one(
+        {"project_id": project_id},
+        {"_id": 0}
+    )
+    
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    return project
+
+@api_router.get("/netlify/session/{session_id}/latest")
+async def get_latest_netlify_project(session_id: str):
+    """Get the latest Netlify project for a session"""
+    projects = await db.netlify_projects.find(
+        {"session_id": session_id},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(1).to_list(1)
+    
+    if not projects:
+        raise HTTPException(status_code=404, detail="No project found for this session")
+    
+    return projects[0]
+
+@api_router.post("/netlify/project/{project_id}/download")
+async def download_netlify_project(project_id: str):
+    """
+    Generate a downloadable ZIP file of the Netlify project
+    Returns base64-encoded ZIP for client to download
+    """
+    import zipfile
+    import io
+    
+    project = await db.netlify_projects.find_one(
+        {"project_id": project_id},
+        {"_id": 0}
+    )
+    
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Create ZIP file in memory
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        files = project.get("files", {})
+        for filepath, content in files.items():
+            zip_file.writestr(filepath, content)
+    
+    zip_buffer.seek(0)
+    zip_data = base64.b64encode(zip_buffer.read()).decode('utf-8')
+    
+    return {
+        "project_id": project_id,
+        "filename": f"netlify-project-{project_id[:8]}.zip",
+        "data": zip_data,
+        "size": len(zip_data)
+    }
+
+# ============================================================================
 # PREVIEW ENDPOINTS - Serve generated projects as proper websites
 # ============================================================================
 
