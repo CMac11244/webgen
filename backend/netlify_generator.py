@@ -208,7 +208,19 @@ IMPORTANT RULES:
 - Use modern design patterns (gradients, shadows, animations)
 - Ensure mobile responsiveness
 
-OUTPUT AS JSON with structure shown above."""
+OUTPUT AS JSON with structure shown above.
+
+═══════════════════════════════════════════════════════════════
+🚨 REQUIREMENT COMPLETION CHECKLIST - MANDATORY
+═══════════════════════════════════════════════════════════════
+
+Before submitting your code, verify EACH requirement is implemented:
+
+{self._generate_requirement_checklist(requirements)}
+
+YOU MUST CHECK OFF EVERY ITEM. If any item is NOT implemented, add it now before responding.
+
+REMEMBER: Beautiful design is great, but COMPLETENESS is mandatory. Every feature, section, element, and detail the user requested MUST be present in your code."""
 
         try:
             chat = LlmChat(
