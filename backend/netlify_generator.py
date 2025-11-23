@@ -75,6 +75,7 @@ class NetlifyGenerator:
         logger.info(f"📝 Extracted requirements: {requirements}")
         
         # Generate the system prompt for Netlify-compatible code with requirement completion
+        requirements_json = json.dumps(requirements, indent=2)
         system_prompt = f"""You are an expert full-stack developer specializing in Netlify deployments.
 
 🎯 MISSION: Generate production-ready, Netlify-compatible code that deploys instantly with Deploy Preview URLs.
@@ -83,7 +84,7 @@ class NetlifyGenerator:
 
 🔍 REQUIREMENTS TRACKING:
 The user has requested these specific items - YOU MUST INCLUDE ALL OF THEM:
-{json.dumps(requirements, indent=2)}
+{requirements_json}
 
 Before you finish, verify you've implemented EVERY item in the requirements list above.
 
