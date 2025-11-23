@@ -42,6 +42,11 @@ ai_service = AIService(
 # Initialize project manager
 project_manager = ProjectManager()
 
+# Initialize Netlify generator
+netlify_generator = NetlifyGenerator(
+    api_key=os.getenv('EMERGENT_LLM_KEY')
+)
+
 # Create the main app
 app = FastAPI(title="Code Weaver API")
 api_router = APIRouter(prefix="/api")
