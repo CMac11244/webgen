@@ -303,16 +303,22 @@ REMEMBER: Beautiful design is great, but COMPLETENESS is mandatory. Every featur
             return project_data
             
         except Exception as e:
-            # Only fallback on genuine errors (not budget issues - those should raise)
             error_msg = str(e).lower()
+            
+            # Budget errors - raise
             if "budget" in error_msg or "exceeded" in error_msg:
                 logger.error(f"❌ BUDGET ERROR: {str(e)}")
-                logger.error("Cannot generate - API budget exceeded. Please increase budget.")
                 raise HTTPException(status_code=402, detail=f"API budget exceeded: {str(e)}")
             
+            # Parsing errors - DO NOT FALLBACK, raise the error
+            if "parsing failed" in error_msg or "ai response parsing" in error_msg:
+                logger.error(f"❌ PARSING ERROR: {str(e)}")
+                logger.error("Check /tmp/failed_ai_response.txt for the response")
+                raise HTTPException(status_code=500, detail=f"Failed to parse AI response: {str(e)}")
+            
+            # Other genuine errors - also raise
             logger.error(f"❌ Generation failed with error: {str(e)}")
-            logger.warning("Falling back to template project")
-            return self._generate_fallback_project(prompt, analysis)
+            raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
     
     async def _edit_netlify_project(self, prompt: str, current_project: Dict, provider: str, model: str, session_id: str) -> Dict[str, Any]:
         """Edit an existing Netlify project"""
